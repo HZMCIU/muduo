@@ -17,55 +17,72 @@
 #include <functional>
 #include <memory>
 
-namespace muduo
-{
-namespace net
-{
+namespace muduo {
+namespace net {
 
 class Channel;
 class EventLoop;
 
+/**
+ * @comment std::enable_shared_from_this
+ * @link https://en.cppreference.com/w/cpp/memory/enable_shared_from_this
+ * @brief
+ * - prototype: template< class T > class enable_shared_from_this;
+ * - purpose: std::enable_shared_from_this allows an object t that is currently managed by a std::shared_ptr named pt to safely generate additional std::shared_ptr instances pt1,
+ *            pt2, ... that all share ownership of t with pt.
+ *
+ *            Publicly inheriting from std::enable_shared_from_this<T> provides the type T with a member function shared_from_this. 
+ *            If an object t of type T is managed by a std::shared_ptr<T> named pt, then calling T::shared_from_this will return a new std::shared_ptr<T> that shares ownership of
+ *            t with pt.
+ */
 class Connector : noncopyable,
-                  public std::enable_shared_from_this<Connector>
-{
- public:
-  typedef std::function<void (int sockfd)> NewConnectionCallback;
+    public std::enable_shared_from_this<Connector> {
+public:
+    typedef std::function<void (int sockfd)> NewConnectionCallback;
 
-  Connector(EventLoop* loop, const InetAddress& serverAddr);
-  ~Connector();
+    Connector(EventLoop* loop, const InetAddress& serverAddr);
+    ~Connector();
 
-  void setNewConnectionCallback(const NewConnectionCallback& cb)
-  { newConnectionCallback_ = cb; }
+    void setNewConnectionCallback(const NewConnectionCallback& cb)
+    {
+        newConnectionCallback_ = cb;
+    }
 
-  void start();  // can be called in any thread
-  void restart();  // must be called in loop thread
-  void stop();  // can be called in any thread
+    void start();  // can be called in any thread
+    void restart();  // must be called in loop thread
+    void stop();  // can be called in any thread
 
-  const InetAddress& serverAddress() const { return serverAddr_; }
+    const InetAddress& serverAddress() const
+    {
+        return serverAddr_;
+    }
 
- private:
-  enum States { kDisconnected, kConnecting, kConnected };
-  static const int kMaxRetryDelayMs = 30*1000;
-  static const int kInitRetryDelayMs = 500;
+private:
+    enum States { kDisconnected, kConnecting, kConnected };
+    static const int kMaxRetryDelayMs = 30 * 1000;
+    static const int kInitRetryDelayMs = 500;
 
-  void setState(States s) { state_ = s; }
-  void startInLoop();
-  void stopInLoop();
-  void connect();
-  void connecting(int sockfd);
-  void handleWrite();
-  void handleError();
-  void retry(int sockfd);
-  int removeAndResetChannel();
-  void resetChannel();
+    void setState(States s)
+    {
+        state_ = s;
+    }
+    void startInLoop();
+    void stopInLoop();
+    void connect();
+    void connecting(int sockfd);
+    void handleWrite();
+    void handleError();
+    void retry(int sockfd);
+    int removeAndResetChannel();
+    void resetChannel();
 
-  EventLoop* loop_;
-  InetAddress serverAddr_;
-  bool connect_; // atomic
-  States state_;  // FIXME: use atomic variable
-  std::unique_ptr<Channel> channel_;
-  NewConnectionCallback newConnectionCallback_;
-  int retryDelayMs_;
+    EventLoop* loop_;
+    InetAddress serverAddr_;
+    bool connect_; // atomic
+    States state_;  // FIXME: use atomic variable
+    std::unique_ptr<Channel> channel_;
+    NewConnectionCallback newConnectionCallback_;
+    int retryDelayMs_;
 };
 
 }  // namespace net

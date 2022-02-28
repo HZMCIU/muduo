@@ -18,20 +18,17 @@
 using namespace muduo;
 using namespace muduo::net;
 
-namespace
+namespace {
+int ProtobufVersionCheck()
 {
-  int ProtobufVersionCheck()
-  {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     return 0;
-  }
-  int dummy __attribute__ ((unused)) = ProtobufVersionCheck();
+}
+int dummy __attribute__ ((unused)) = ProtobufVersionCheck();
 }
 
-namespace muduo
-{
-namespace net
-{
+namespace muduo {
+namespace net {
 const char rpctag [] = "RPC0";
 }
 }

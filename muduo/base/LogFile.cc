@@ -19,115 +19,127 @@ LogFile::LogFile(const string& basename,
                  bool threadSafe,
                  int flushInterval,
                  int checkEveryN)
-  : basename_(basename),
-    rollSize_(rollSize),
-    flushInterval_(flushInterval),
-    checkEveryN_(checkEveryN),
-    count_(0),
-    mutex_(threadSafe ? new MutexLock : NULL),
-    startOfPeriod_(0),
-    lastRoll_(0),
-    lastFlush_(0)
+    : basename_(basename),
+      rollSize_(rollSize),
+      flushInterval_(flushInterval),
+      checkEveryN_(checkEveryN),
+      count_(0),
+      mutex_(threadSafe ? new MutexLock : NULL),
+      startOfPeriod_(0),
+      lastRoll_(0),
+      lastFlush_(0)
 {
-  assert(basename.find('/') == string::npos);
-  rollFile();
+    assert(basename.find('/') == string::npos);
+    rollFile();
 }
 
 LogFile::~LogFile() = default;
 
 void LogFile::append(const char* logline, int len)
 {
-  if (mutex_)
-  {
-    MutexLockGuard lock(*mutex_);
-    append_unlocked(logline, len);
-  }
-  else
-  {
-    append_unlocked(logline, len);
-  }
+    if (mutex_) {
+        MutexLockGuard lock(*mutex_);
+        append_unlocked(logline, len);
+    }
+    else {
+        append_unlocked(logline, len);
+    }
 }
 
 void LogFile::flush()
 {
-  if (mutex_)
-  {
-    MutexLockGuard lock(*mutex_);
-    file_->flush();
-  }
-  else
-  {
-    file_->flush();
-  }
+    if (mutex_) {
+        MutexLockGuard lock(*mutex_);
+        file_->flush();
+    }
+    else {
+        file_->flush();
+    }
 }
 
 void LogFile::append_unlocked(const char* logline, int len)
 {
-  file_->append(logline, len);
+    file_->append(logline, len);
 
-  if (file_->writtenBytes() > rollSize_)
-  {
-    rollFile();
-  }
-  else
-  {
-    ++count_;
-    if (count_ >= checkEveryN_)
-    {
-      count_ = 0;
-      time_t now = ::time(NULL);
-      time_t thisPeriod_ = now / kRollPerSeconds_ * kRollPerSeconds_;
-      if (thisPeriod_ != startOfPeriod_)
-      {
+    if (file_->writtenBytes() > rollSize_) {
         rollFile();
-      }
-      else if (now - lastFlush_ > flushInterval_)
-      {
-        lastFlush_ = now;
-        file_->flush();
-      }
     }
-  }
+    else {
+        ++count_;
+        if (count_ >= checkEveryN_) {
+            count_ = 0;
+            time_t now = ::time(NULL);
+            time_t thisPeriod_ = now / kRollPerSeconds_ * kRollPerSeconds_;
+            if (thisPeriod_ != startOfPeriod_) {
+                rollFile();
+            }
+            else if (now - lastFlush_ > flushInterval_) {
+                lastFlush_ = now;
+                file_->flush();
+            }
+        }
+    }
 }
 
 bool LogFile::rollFile()
 {
-  time_t now = 0;
-  string filename = getLogFileName(basename_, &now);
-  time_t start = now / kRollPerSeconds_ * kRollPerSeconds_;
+    time_t now = 0;
+    string filename = getLogFileName(basename_, &now);
+    time_t start = now / kRollPerSeconds_ * kRollPerSeconds_;
 
-  if (now > lastRoll_)
-  {
-    lastRoll_ = now;
-    lastFlush_ = now;
-    startOfPeriod_ = start;
-    file_.reset(new FileUtil::AppendFile(filename));
-    return true;
-  }
-  return false;
+    if (now > lastRoll_) {
+        lastRoll_ = now;
+        lastFlush_ = now;
+        startOfPeriod_ = start;
+        file_.reset(new FileUtil::AppendFile(filename));
+        return true;
+    }
+    return false;
 }
 
 string LogFile::getLogFileName(const string& basename, time_t* now)
 {
-  string filename;
-  filename.reserve(basename.size() + 64);
-  filename = basename;
+    string filename;
+    filename.reserve(basename.size() + 64);
+    filename = basename;
 
-  char timebuf[32];
-  struct tm tm;
-  *now = time(NULL);
-  gmtime_r(now, &tm); // FIXME: localtime_r ?
-  strftime(timebuf, sizeof timebuf, ".%Y%m%d-%H%M%S.", &tm);
-  filename += timebuf;
+    char timebuf[32];
+    struct tm tm;
+    /**
+     * @comment time
+     * @brief
+     * - prototype: time_t time(time_t *tloc);
+     * - purpose: time() returns the time as the number of seconds since the Epoch, 1970-01-01 00:00:00 +0000 (UTC).
+     *
+     *            If tloc is non-NULL, the return value is also stored in the memory pointed to by tloc.
+     */
+    *now = time(NULL);
+    /**
+     * @comment gmtime_r
+     * @link https://en.cppreference.com/w/c/chrono/gmtime
+     * @brief
+     * - prototype: struct tm *gmtime_r( const time_t *timer, struct tm *buf );
+     * - purpose:  Converts given time since epoch (a time_t value pointed to by timer) into calendar time,
+     *             expressed in Coordinated Universal Time (UTC) in the struct tm format.
+     */
+    gmtime_r(now, &tm); // FIXME: localtime_r ?
+    /**
+     * @comment strftime
+     * @brief
+     * - prototype: size_t strftime(char *restrict s, size_t max, const char *restrict format, const struct tm *restrict tm);
+     * - purpose: The strftime() function formats the broken-down time tm according to the format specification format and places the result in the character array s of size max.
+     *            The broken-down time structure tm is defined in <time.h>.  See also ctime(3).
+     */
+    strftime(timebuf, sizeof timebuf, ".%Y%m%d-%H%M%S.", &tm);
+    filename += timebuf;
 
-  filename += ProcessInfo::hostname();
+    filename += ProcessInfo::hostname();
 
-  char pidbuf[32];
-  snprintf(pidbuf, sizeof pidbuf, ".%d", ProcessInfo::pid());
-  filename += pidbuf;
+    char pidbuf[32];
+    snprintf(pidbuf, sizeof pidbuf, ".%d", ProcessInfo::pid());
+    filename += pidbuf;
 
-  filename += ".log";
+    filename += ".log";
 
-  return filename;
+    return filename;
 }
-

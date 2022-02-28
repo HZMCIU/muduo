@@ -14,40 +14,61 @@
 #include <memory>
 #include <pthread.h>
 
-namespace muduo
-{
+namespace muduo {
 
-class Thread : noncopyable
-{
- public:
-  typedef std::function<void ()> ThreadFunc;
+class Thread : noncopyable {
+public:
+    typedef std::function<void ()> ThreadFunc;
 
-  explicit Thread(ThreadFunc, const string& name = string());
-  // FIXME: make it movable in C++11
-  ~Thread();
+    explicit Thread(ThreadFunc, const string& name = string());
+    // FIXME: make it movable in C++11
+    ~Thread();
 
-  void start();
-  int join(); // return pthread_join()
+    void start();
+    int join(); // return pthread_join()
 
-  bool started() const { return started_; }
-  // pthread_t pthreadId() const { return pthreadId_; }
-  pid_t tid() const { return tid_; }
-  const string& name() const { return name_; }
+    bool started() const
+    {
+        return started_;
+    }
+    // pthread_t pthreadId() const { return pthreadId_; }
+    pid_t tid() const
+    {
+        return tid_;
+    }
+    const string& name() const
+    {
+        return name_;
+    }
 
-  static int numCreated() { return numCreated_.get(); }
+    static int numCreated()
+    {
+        return numCreated_.get();
+    }
 
- private:
-  void setDefaultName();
+private:
+    void setDefaultName();
 
-  bool       started_;
-  bool       joined_;
-  pthread_t  pthreadId_;
-  pid_t      tid_;
-  ThreadFunc func_;
-  string     name_;
-  CountDownLatch latch_;
+    bool       started_;
+    bool       joined_;
+    /**
+     * @comment pthread_t
+     * @brief
+     * pthread_t is the data type used to uniquely identify a thread. It is returned by pthread_create() and used by the application in function calls
+     * that require a thread identifier.
+     */
+    pthread_t  pthreadId_;
+    /**
+     * @comment pid_t
+     * @link  https://www.gnu.org/software/libc/manual/html_node/Process-Identification.html
+     * @brief Each process is named by a process ID number, a value of type pid_t.
+     */
+    pid_t      tid_;
+    ThreadFunc func_;
+    string     name_;
+    CountDownLatch latch_;
 
-  static AtomicInt32 numCreated_;
+    static AtomicInt32 numCreated_;
 };
 
 }  // namespace muduo

@@ -14,10 +14,8 @@
 #include "muduo/base/Timestamp.h"
 #include "muduo/net/protobuf/ProtobufCodecLite.h"
 
-namespace muduo
-{
-namespace net
-{
+namespace muduo {
+namespace net {
 
 class Buffer;
 class TcpConnection;

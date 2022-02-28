@@ -11,65 +11,62 @@
 #include <assert.h>
 #include <pthread.h>
 
-namespace muduo
-{
+namespace muduo {
 
 template<typename T>
-class ThreadLocalSingleton : noncopyable
-{
- public:
-  ThreadLocalSingleton() = delete;
-  ~ThreadLocalSingleton() = delete;
+class ThreadLocalSingleton : noncopyable {
+public:
+    ThreadLocalSingleton() = delete;
+    ~ThreadLocalSingleton() = delete;
 
-  static T& instance()
-  {
-    if (!t_value_)
+    static T& instance()
     {
-      t_value_ = new T();
-      deleter_.set(t_value_);
-    }
-    return *t_value_;
-  }
-
-  static T* pointer()
-  {
-    return t_value_;
-  }
-
- private:
-  static void destructor(void* obj)
-  {
-    assert(obj == t_value_);
-    typedef char T_must_be_complete_type[sizeof(T) == 0 ? -1 : 1];
-    T_must_be_complete_type dummy; (void) dummy;
-    delete t_value_;
-    t_value_ = 0;
-  }
-
-  class Deleter
-  {
-   public:
-    Deleter()
-    {
-      pthread_key_create(&pkey_, &ThreadLocalSingleton::destructor);
+        if (!t_value_) {
+            t_value_ = new T();
+            deleter_.set(t_value_);
+        }
+        return *t_value_;
     }
 
-    ~Deleter()
+    static T* pointer()
     {
-      pthread_key_delete(pkey_);
+        return t_value_;
     }
 
-    void set(T* newObj)
+private:
+    static void destructor(void* obj)
     {
-      assert(pthread_getspecific(pkey_) == NULL);
-      pthread_setspecific(pkey_, newObj);
+        assert(obj == t_value_);
+        typedef char T_must_be_complete_type[sizeof(T) == 0 ? -1 : 1];
+        T_must_be_complete_type dummy;
+        (void) dummy;
+        delete t_value_;
+        t_value_ = 0;
     }
 
-    pthread_key_t pkey_;
-  };
+    class Deleter {
+    public:
+        Deleter()
+        {
+            pthread_key_create(&pkey_, &ThreadLocalSingleton::destructor);
+        }
 
-  static __thread T* t_value_;
-  static Deleter deleter_;
+        ~Deleter()
+        {
+            pthread_key_delete(pkey_);
+        }
+
+        void set(T* newObj)
+        {
+            assert(pthread_getspecific(pkey_) == NULL);
+            pthread_setspecific(pkey_, newObj);
+        }
+
+        pthread_key_t pkey_;
+    };
+
+    static __thread T* t_value_;
+    static Deleter deleter_;
 };
 
 template<typename T>

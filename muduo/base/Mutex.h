@@ -89,7 +89,7 @@ extern void __assert_perror_fail (int errnum,
                                   const char *file,
                                   unsigned int line,
                                   const char *function)
-    noexcept __attribute__ ((__noreturn__));
+noexcept __attribute__ ((__noreturn__));
 __END_DECLS
 #endif
 
@@ -104,8 +104,7 @@ __END_DECLS
 
 #endif // CHECK_PTHREAD_RETURN_VALUE
 
-namespace muduo
-{
+namespace muduo {
 
 // Use as data member of a class, eg.
 //
@@ -118,84 +117,105 @@ namespace muduo
 //   mutable MutexLock mutex_;
 //   std::vector<int> data_ GUARDED_BY(mutex_);
 // };
-class CAPABILITY("mutex") MutexLock : noncopyable
-{
- public:
-  MutexLock()
-    : holder_(0)
-  {
-    MCHECK(pthread_mutex_init(&mutex_, NULL));
-  }
-
-  ~MutexLock()
-  {
-    assert(holder_ == 0);
-    MCHECK(pthread_mutex_destroy(&mutex_));
-  }
-
-  // must be called when locked, i.e. for assertion
-  bool isLockedByThisThread() const
-  {
-    return holder_ == CurrentThread::tid();
-  }
-
-  void assertLocked() const ASSERT_CAPABILITY(this)
-  {
-    assert(isLockedByThisThread());
-  }
-
-  // internal usage
-
-  void lock() ACQUIRE()
-  {
-    MCHECK(pthread_mutex_lock(&mutex_));
-    assignHolder();
-  }
-
-  void unlock() RELEASE()
-  {
-    unassignHolder();
-    MCHECK(pthread_mutex_unlock(&mutex_));
-  }
-
-  pthread_mutex_t* getPthreadMutex() /* non-const */
-  {
-    return &mutex_;
-  }
-
- private:
-  friend class Condition;
-
-  class UnassignGuard : noncopyable
-  {
-   public:
-    explicit UnassignGuard(MutexLock& owner)
-      : owner_(owner)
+class CAPABILITY("mutex") MutexLock : noncopyable {
+public:
+    MutexLock()
+        : holder_(0)
     {
-      owner_.unassignHolder();
+        /**
+         * @comment pthread_mutex_init
+         * @brief
+         * - purpose: pthread_mutex_init — destroy and initialize a mutex
+         * - prototype: int pthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr);
+         */
+        MCHECK(pthread_mutex_init(&mutex_, NULL));
     }
 
-    ~UnassignGuard()
+    ~MutexLock()
     {
-      owner_.assignHolder();
+        assert(holder_ == 0);
+        /**
+         * @comment pthread_mutex_destroy
+         * @brief
+         * - prototype: int pthread_mutex_destroy(pthread_mutex_t *mutex);
+         */
+        MCHECK(pthread_mutex_destroy(&mutex_));
     }
 
-   private:
-    MutexLock& owner_;
-  };
+    // must be called when locked, i.e. for assertion
+    bool isLockedByThisThread() const
+    {
+        return holder_ == CurrentThread::tid();
+    }
 
-  void unassignHolder()
-  {
-    holder_ = 0;
-  }
+    void assertLocked() const ASSERT_CAPABILITY(this)
+    {
+        assert(isLockedByThisThread());
+    }
 
-  void assignHolder()
-  {
-    holder_ = CurrentThread::tid();
-  }
+    // internal usage
 
-  pthread_mutex_t mutex_;
-  pid_t holder_;
+    void lock() ACQUIRE()
+    {
+        /**
+         * @comment pthread_mutex_lock
+         * @brief
+         * - prototype: int pthread_mutex_lock(pthread_mutex_t *mutex);
+         * - purpose: lock and unlock a mutex
+         */
+        MCHECK(pthread_mutex_lock(&mutex_));
+        assignHolder();
+    }
+
+    void unlock() RELEASE()
+    {
+        unassignHolder();
+        /**
+         * @comment pthread_mutex_unlock
+         * @brief
+         * - prototype: pthread_mutex_unlock
+         * - purpose: lock and unlock a mutex
+         */
+        MCHECK(pthread_mutex_unlock(&mutex_));
+    }
+
+    pthread_mutex_t* getPthreadMutex() /* non-const */
+    {
+        return &mutex_;
+    }
+
+private:
+    friend class Condition;
+
+    class UnassignGuard : noncopyable {
+    public:
+        explicit UnassignGuard(MutexLock& owner)
+            : owner_(owner)
+        {
+            owner_.unassignHolder();
+        }
+
+        ~UnassignGuard()
+        {
+            owner_.assignHolder();
+        }
+
+    private:
+        MutexLock& owner_;
+    };
+
+    void unassignHolder()
+    {
+        holder_ = 0;
+    }
+
+    void assignHolder()
+    {
+        holder_ = CurrentThread::tid();
+    }
+
+    pthread_mutex_t mutex_;
+    pid_t holder_;
 };
 
 // Use as a stack variable, eg.
@@ -204,23 +224,27 @@ class CAPABILITY("mutex") MutexLock : noncopyable
 //   MutexLockGuard lock(mutex_);
 //   return data_.size();
 // }
-class SCOPED_CAPABILITY MutexLockGuard : noncopyable
-{
- public:
-  explicit MutexLockGuard(MutexLock& mutex) ACQUIRE(mutex)
-    : mutex_(mutex)
-  {
-    mutex_.lock();
-  }
+class SCOPED_CAPABILITY MutexLockGuard : noncopyable {
+public:
+    /**
+     * @comment explicit keyword.
+     * @link https://stackoverflow.com/questions/121162/what-does-the-explicit-keyword-mean
+     * @brief Prefixing the explicit keyword to the constructor prevents the compiler from using that constructor for implicit conversions.
+     */
+    explicit MutexLockGuard(MutexLock& mutex) ACQUIRE(mutex)
+        : mutex_(mutex)
+    {
+        mutex_.lock();
+    }
 
-  ~MutexLockGuard() RELEASE()
-  {
-    mutex_.unlock();
-  }
+    ~MutexLockGuard() RELEASE()
+    {
+        mutex_.unlock();
+    }
 
- private:
+private:
 
-  MutexLock& mutex_;
+    MutexLock& mutex_;
 };
 
 }  // namespace muduo
